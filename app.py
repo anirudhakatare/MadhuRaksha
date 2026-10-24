@@ -153,7 +153,21 @@ except Exception:
     st.stop()
 
 cols = list(df.columns)
-target = next((c for c in cols if "diab" in c.lower() or "outcome" in c.lower()), cols[-1])
+
+
+def guess_target(d):
+    """Pick the 0/1 diabetes column (not a feature like DiabetesPedigreeFunction)."""
+    names = {c.lower().replace(" ", "").replace("_", ""): c for c in d.columns}
+    for key in ("outcome", "diabetes", "diabetic", "hasdiabetes", "diabetesbinary", "target", "label", "class"):
+        if key in names and d[names[key]].nunique(dropna=True) == 2:
+            return names[key]
+    for c in d.columns:
+        if d[c].nunique(dropna=True) == 2 and ("diab" in c.lower() or "outcome" in c.lower()):
+            return c
+    return d.columns[-1]
+
+
+target = guess_target(df)
 uniq = [str(u) for u in df[target].dropna().unique()][:20]
 positive = "1" if "1" in uniq else (uniq[-1] if uniq else "1")
 features = [c for c in df.select_dtypes("number").columns if c != target]
