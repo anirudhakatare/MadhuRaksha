@@ -2,6 +2,8 @@
 Run:  streamlit run app.py
 Upload your cleaned CSV in the sidebar (or use the built-in demo data).
 """
+import hmac
+import time
 from pathlib import Path
 
 import numpy as np
@@ -92,26 +94,76 @@ st.caption("Educational project. This is a screening estimate, not a medical dia
            "Your inputs are not saved or stored.")
 
 DATA_FILE = Path(__file__).with_name("data.csv")   # put your cleaned CSV here for public hosting
+MAX_ROWS = 300_000          # safety limit on dataset size
+MAX_CALLS, WINDOW = 15, 600  # max risk calculations per visitor per 10 minutes
 
-with st.sidebar:
-    with st.expander("Data settings (advanced)", expanded=False):
-        up = st.file_uploader("Use a different CSV", type="csv")
-        if up is not None:
-            df = pd.read_csv(up)
-            st.caption("Using your uploaded file.")
-        elif DATA_FILE.exists():
-            df = pd.read_csv(DATA_FILE)
-            st.caption(f"Using bundled dataset: {DATA_FILE.name}")
-        else:
-            df = demo_data()
-            st.info("Using synthetic DEMO data. Add data.csv next to app.py or upload a CSV.")
-        cols = list(df.columns)
-        guess = next((c for c in cols if "diab" in c.lower() or "outcome" in c.lower()), cols[-1])
-        target = st.selectbox("Target column (has diabetes or not)", cols, index=cols.index(guess))
+
+def admin_password():
+    """Set ADMIN_PASSWORD in Streamlit Cloud > Settings > Secrets (never in GitHub)."""
+    try:
+        return st.secrets.get("ADMIN_PASSWORD")
+    except Exception:
+        return None
+
+
+def is_admin():
+    pw = admin_password()
+    if not pw:
+        return False                       # no password set -> app is public-only
+    if st.session_state.get("is_admin"):
+        return True
+    with st.sidebar.expander("Admin login"):
+        entered = st.text_input("Password", type="password", key="admin_pw")
+        if entered and hmac.compare_digest(entered.encode(), str(pw).encode()):
+            st.session_state["is_admin"] = True
+            st.rerun()
+        elif entered:
+            st.error("Wrong password.")
+    return False
+
+
+def call_allowed():
+    """Simple per-visitor rate limit."""
+    now = time.time()
+    hist = [t for t in st.session_state.get("calls", []) if now - t < WINDOW]
+    ok = len(hist) < MAX_CALLS
+    if ok:
+        hist.append(now)
+    st.session_state["calls"] = hist
+    return ok
+
+
+admin = is_admin()
+up = None
+if admin:
+    with st.sidebar.expander("Data settings (admin)"):
+        up = st.file_uploader("Use a different CSV (max 20 MB)", type="csv")
+
+try:
+    if up is not None:
+        df = pd.read_csv(up, nrows=MAX_ROWS)
+    elif DATA_FILE.exists():
+        df = pd.read_csv(DATA_FILE, nrows=MAX_ROWS)
+    else:
+        df = demo_data()
+        if admin:
+            st.sidebar.info("Using synthetic DEMO data. Add data.csv next to app.py.")
+except Exception:
+    st.error("The dataset could not be loaded.")
+    st.stop()
+
+cols = list(df.columns)
+target = next((c for c in cols if "diab" in c.lower() or "outcome" in c.lower()), cols[-1])
+uniq = [str(u) for u in df[target].dropna().unique()][:20]
+positive = "1" if "1" in uniq else (uniq[-1] if uniq else "1")
+features = [c for c in df.select_dtypes("number").columns if c != target]
+
+if admin:
+    with st.sidebar.expander("Model settings (admin)"):
+        target = st.selectbox("Target column", cols, index=cols.index(target))
         uniq = [str(u) for u in df[target].dropna().unique()][:20]
-        default_pos = "1" if "1" in uniq else (uniq[-1] if uniq else "1")
         positive = st.selectbox("Value meaning 'has diabetes'", uniq,
-                                index=uniq.index(default_pos) if default_pos in uniq else 0)
+                                index=uniq.index(positive) if positive in uniq else 0)
         numeric = [c for c in df.select_dtypes("number").columns if c != target]
         features = st.multiselect("Input features", numeric, default=numeric)
 
@@ -121,13 +173,12 @@ if not features:
 
 model, stats, info = train(df, target, features, positive)
 
-with st.sidebar:
-    st.header("Risk levels")
-    prev = stats["prev"]
-    low_d = round(min(prev * 0.8, 0.3), 2)
-    high_d = round(min(max(prev * 2.0, low_d + 0.1), 0.6), 2)
-    low_cut, high_cut = st.slider("Low below / High above", 0.0, 1.0, (low_d, high_d), 0.01)
-    st.caption("Defaults are based on how common diabetes is in your data. Adjust and justify in your report.")
+prev = stats["prev"]
+low_cut = round(min(prev * 0.8, 0.3), 2)
+high_cut = round(min(max(prev * 2.0, low_cut + 0.1), 0.6), 2)
+if admin:
+    with st.sidebar.expander("Risk levels (admin)"):
+        low_cut, high_cut = st.slider("Low below / High above", 0.0, 1.0, (low_cut, high_cut), 0.01)
 
 # ------------------------------------------------------------------ main
 t1, t2 = st.tabs(["Check my risk", "About the model"])
@@ -148,7 +199,12 @@ with t1:
                                               float(m["median"]), step=step, key=f))
 
     if st.button("Calculate risk", type="primary"):
-        st.session_state["vals"] = dict(vals)
+        if call_allowed():
+            # keep every value inside the range seen in the training data
+            st.session_state["vals"] = {f: float(np.clip(vals[f], info[f]["min"], info[f]["max"]))
+                                        for f in features}
+        else:
+            st.warning("Too many requests. Please wait a few minutes and try again.")
 
     if "vals" in st.session_state and set(st.session_state["vals"]) == set(features):
         v = st.session_state["vals"]
