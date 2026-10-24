@@ -14,7 +14,7 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 
-st.set_page_config(page_title="Diabetes Risk Predictor", page_icon="🩺", layout="centered")
+st.set_page_config(page_title="MadhuRaksha | Diabetes Predictor", page_icon="🩺", layout="centered")
 
 ADVICE = {
     "Low": [
@@ -89,7 +89,32 @@ def bmi_category(b):
 
 
 # ------------------------------------------------------------------ sidebar
-st.title("🩺 Diabetes Risk Predictor")
+st.markdown(
+    """
+<style>
+.mr-hero{text-align:center;padding:2.2rem 1rem 1.6rem;margin:0 0 1.2rem;border-radius:20px;
+  background:linear-gradient(135deg,rgba(14,165,233,.18),rgba(16,185,129,.18));
+  border:1px solid rgba(128,128,128,.25);}
+.mr-name{font-size:3.4rem;font-weight:800;letter-spacing:.5px;line-height:1.1;margin:0;
+  background:linear-gradient(90deg,#0ea5e9,#10b981);-webkit-background-clip:text;
+  background-clip:text;-webkit-text-fill-color:transparent;color:#0ea5e9;}
+.mr-sub{font-size:1.5rem;font-weight:600;margin:.35rem 0 0;}
+.mr-tag{font-size:1rem;opacity:.8;margin:.6rem 0 1rem;}
+.mr-chips span{display:inline-block;margin:.2rem .25rem;padding:.25rem .8rem;border-radius:999px;
+  font-size:.85rem;border:1px solid rgba(128,128,128,.4);}
+@media (max-width:600px){.mr-name{font-size:2.5rem}.mr-sub{font-size:1.2rem}}
+</style>
+<div class="mr-hero">
+  <div style="font-size:2.2rem">🩺</div>
+  <h1 class="mr-name">MadhuRaksha</h1>
+  <p class="mr-sub">Diabetes Predictor</p>
+  <p class="mr-tag">AI-powered diabetes risk screening for India</p>
+  <div class="mr-chips"><span>Risk level</span><span>Top risk factors</span>
+  <span>Prevention advice</span><span>What-if simulator</span></div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
 st.caption("Educational project. This is a screening estimate, not a medical diagnosis. "
            "Your inputs are not saved or stored.")
 
