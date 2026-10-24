@@ -51,6 +51,17 @@ Put your cleaned CSV next to `app.py` and name it `data.csv`. The app picks it u
 | `app.py` | The Streamlit app, including model training |
 | `data.csv` | Cleaned dataset used by the app |
 | `requirements.txt` | Python packages needed |
+| `.streamlit/config.toml` | Security and display settings |
+| `.gitignore` | Keeps secrets out of GitHub |
+
+## Security and privacy
+
+- Inputs are used only to calculate the result and are not saved or logged.
+- Visitors cannot upload data or change the model. Those controls appear only after an admin password (stored as a Streamlit secret, not in this repo) is entered.
+- Entered values are limited to the ranges seen in the training data.
+- A per-visitor rate limit slows repeated requests.
+- XSRF protection is on, and detailed error messages are hidden from visitors.
+- The app runs over HTTPS on Streamlit Community Cloud.
 
 ## Limitations
 
@@ -74,7 +85,7 @@ MadhuRaksha is for education and awareness only. It estimates risk and does not 
 
 ## Author
 
-`ANIRUDHA KATARE` | `2026`
+ANIRUDHA KATARE | 2026
 
 ## Data source and credits
 
