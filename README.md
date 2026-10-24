@@ -74,7 +74,7 @@ MadhuRaksha is for education and awareness only. It estimates risk and does not 
 
 ## Author
 
-`YOUR NAME` | `YOUR COLLEGE` | `YEAR`
+`ANIRUDHA KATARE` | `2026`
 
 ## Data source and credits
 
